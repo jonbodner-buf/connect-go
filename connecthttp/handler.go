@@ -62,14 +62,18 @@ func (h *handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Re
 		return
 	}
 
-	contentType := canonicalizeContentType(getHeaderCanonical(request.Header, headerContentType))
+	rawContentType := getHeaderCanonical(request.Header, headerContentType)
+	contentType := canonicalizeContentType(rawContentType)
 
-	// Find our implementation of the RPC protocol in use.
+	// Find our implementation of the RPC protocol in use. GET requests carry
+	// their codec in the query string, so their Content-Type is irrelevant.
 	var protocolHandler protocolHandler
-	for _, handler := range protocolHandlers {
-		if handler.CanHandlePayload(request, contentType) {
-			protocolHandler = handler
-			break
+	if request.Method == http.MethodGet || hasSupportedCharset(rawContentType) {
+		for _, handler := range protocolHandlers {
+			if handler.CanHandlePayload(request, contentType) {
+				protocolHandler = handler
+				break
+			}
 		}
 	}
 	if protocolHandler == nil {

@@ -391,23 +391,36 @@ func canonicalizeContentType(contentType string) string {
 	return canonicalizeContentTypeSlow(contentType)
 }
 
+// canonicalizeContentTypeSlow lowercases the media type and drops its
+// parameters. Use hasSupportedCharset to check the charset parameter.
 func canonicalizeContentTypeSlow(contentType string) string {
-	base, params, err := mime.ParseMediaType(contentType)
+	base, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
 		return contentType
 	}
-	// According to RFC 9110 Section 8.3.2, the charset parameter value should be treated as case-insensitive.
-	// Connect payloads are always UTF-8, so a utf-8 charset is dropped to canonicalize to the bare
-	// content type; any other charset is retained (and rejected during codec negotiation).
-	// ref.) https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.2
-	if charset, ok := params["charset"]; ok {
-		if strings.ToLower(charset) == "utf-8" {
-			delete(params, "charset")
-		} else {
-			params["charset"] = strings.ToLower(charset)
-		}
+	return base
+}
+
+// hasSupportedCharset reports whether the charset parameter of contentType, if
+// any, is one its codec can decode. JSON is always UTF-8 (RFC 8259), and other
+// codecs ignore the charset. Charset values are case-insensitive (RFC 9110
+// Section 8.3.2).
+func hasSupportedCharset(contentType string) bool {
+	if !strings.Contains(contentType, ";") {
+		return true
 	}
-	return mime.FormatMediaType(base, params)
+	// Params are nil on a parse error. A malformed Content-Type matches no
+	// protocol, so it fails the content type lookup instead.
+	base, params, _ := mime.ParseMediaType(contentType)
+	if charset, ok := params["charset"]; ok && isJSONMediaType(base) && !strings.EqualFold(charset, "utf-8") {
+		return false
+	}
+	return true
+}
+
+func isJSONMediaType(mediaType string) bool {
+	_, subtype, _ := strings.Cut(mediaType, "/")
+	return subtype == "json" || strings.HasSuffix(subtype, "+json")
 }
 
 func httpToCode(httpCode int) connect.Code {

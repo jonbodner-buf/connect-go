@@ -199,6 +199,38 @@ func TestHandler_ServeHTTP(t *testing.T) {
 		assert.Equal(t, resp.StatusCode, http.StatusOK)
 	})
 
+	t.Run("unknown_params_in_content_type_header", func(t *testing.T) {
+		t.Parallel()
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			server.URL()+pingProcedure,
+			strings.NewReader("{}"),
+		)
+		assert.Nil(t, err)
+		req.Header.Set("Content-Type", `application/json ; charset = "utf-8" ; foo=bar`)
+		resp, err := client.Do(req)
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, resp.StatusCode, http.StatusOK)
+	})
+
+	t.Run("charset_in_proto_content_type_header", func(t *testing.T) {
+		t.Parallel()
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			server.URL()+pingProcedure,
+			strings.NewReader(""),
+		)
+		assert.Nil(t, err)
+		req.Header.Set("Content-Type", "application/proto; charset=iso-8859-1; foo=bar")
+		resp, err := client.Do(req)
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, resp.StatusCode, http.StatusOK)
+	})
+
 	t.Run("unsupported_charset", func(t *testing.T) {
 		t.Parallel()
 		req, err := http.NewRequestWithContext(
@@ -213,6 +245,22 @@ func TestHandler_ServeHTTP(t *testing.T) {
 		assert.Nil(t, err)
 		defer resp.Body.Close()
 		assert.Equal(t, resp.StatusCode, http.StatusUnsupportedMediaType)
+	})
+
+	t.Run("get_ignores_content_type_charset", func(t *testing.T) {
+		t.Parallel()
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			server.URL()+pingProcedure+`?encoding=json&message={}`,
+			http.NoBody,
+		)
+		assert.Nil(t, err)
+		req.Header.Set("Content-Type", "application/json; charset=shift-jis")
+		resp, err := client.Do(req)
+		assert.Nil(t, err)
+		defer resp.Body.Close()
+		assert.Equal(t, resp.StatusCode, http.StatusOK)
 	})
 
 	t.Run("unsupported_content_encoding", func(t *testing.T) {

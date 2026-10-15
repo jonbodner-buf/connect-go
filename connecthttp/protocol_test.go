@@ -31,14 +31,44 @@ func TestCanonicalizeContentType(t *testing.T) {
 	}{
 		{name: "uppercase should be normalized", arg: "APPLICATION/json", want: "application/json"},
 		{name: "utf-8 charset param should be stripped", arg: "application/json; charset=UTF-8", want: "application/json"},
-		{name: "non-utf-8 charset param should be lowercased", arg: "application/json; charset=Shift-JIS", want: "application/json; charset=shift-jis"},
-		{name: "non charset param should not be changed", arg: "multipart/form-data; boundary=fooBar", want: "multipart/form-data; boundary=fooBar"},
+		{name: "non-utf-8 charset param should be stripped", arg: "application/json; charset=Shift-JIS", want: "application/json"},
+		{name: "unknown param should be dropped", arg: "multipart/form-data; boundary=fooBar", want: "multipart/form-data"},
 		{name: "no parameters should be normalized", arg: "APPLICATION/json;  ", want: "application/json"},
+		{name: "unknown and charset params should be dropped", arg: "application/json; foo=bar; charset=shift-jis", want: "application/json"},
+		{name: "spaces around separators should be allowed", arg: `application/json ; charset = "utf-8" ; foo = bar`, want: "application/json"},
+		{name: "grpc proto params should be dropped", arg: "application/grpc+proto; charset=utf-16; foo=bar", want: "application/grpc+proto"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, canonicalizeContentType(tt.arg), tt.want)
+		})
+	}
+}
+
+func TestHasSupportedCharset(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		arg  string
+		want bool
+	}{
+		{name: "no parameters", arg: "application/json", want: true},
+		{name: "utf-8 charset", arg: "application/json; charset=UTF-8", want: true},
+		{name: "quoted utf-8 charset", arg: `application/json; charset="utf-8"`, want: true},
+		{name: "spaces around separators", arg: `application/json ; charset = "utf-8" ; foo = bar`, want: true},
+		{name: "unknown param only", arg: "application/json; foo=bar", want: true},
+		{name: "malformed", arg: "application/json; charset", want: true},
+		{name: "non-utf-8 json charset", arg: "application/json; charset=Shift-JIS", want: false},
+		{name: "quoted non-utf-8 json charset", arg: `application/json; foo=bar; charset="Shift-JIS"`, want: false},
+		{name: "non-utf-8 json suffix charset", arg: "application/connect+json; charset=iso-8859-1", want: false},
+		{name: "non-utf-8 proto charset", arg: "application/proto; charset=iso-8859-1", want: true},
+		{name: "non-utf-8 grpc proto charset", arg: "application/grpc+proto; charset=utf-16", want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, hasSupportedCharset(tt.arg), tt.want)
 		})
 	}
 }
