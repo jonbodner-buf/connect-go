@@ -76,7 +76,14 @@ func (s *handlerStream) Receive(dst any) error {
 	return nil
 }
 
-func (s *handlerStream) SendHeaders() error { return nil }
+func (s *handlerStream) SendHeaders() error {
+	//headers are sent back with the body for unary requests
+	if s.unary || s.headerFlushed {
+		return nil
+	}
+	s.flushHeader()
+	return s.conn.Send(nil)
+}
 
 func (s *handlerStream) Send(msg any) error {
 	s.flushHeader()
