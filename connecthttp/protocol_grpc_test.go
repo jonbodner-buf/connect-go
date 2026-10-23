@@ -302,7 +302,18 @@ func TestGRPCValidateResponseContentType(t *testing.T) {
 			responseContentType: "application/grpc-web+proto",
 			expectCode:          connect.CodeInternal,
 		},
+		// Media type is case-insensitive, and parameters other than a JSON
+		// charset are ignored.
+		{
+			codecName:           connect.CodecNameProto,
+			responseContentType: "Application/GRPC; foo=bar",
+		},
 		// Disallowed content-types
+		{
+			codecName:           connect.CodecNameJSON,
+			responseContentType: "application/grpc+json; charset=latin1",
+			expectCode:          connect.CodeInternal,
+		},
 		{
 			codecName:           connect.CodecNameProto,
 			responseContentType: "application/proto",

@@ -1115,8 +1115,9 @@ func grpcValidateResponseContentType(web bool, requestCodecName string, response
 	if web {
 		bare, prefix = grpcWebContentTypeDefault, grpcWebContentTypePrefix
 	}
-	if responseContentType == prefix+requestCodecName ||
-		(requestCodecName == connect.CodecNameProto && responseContentType == bare) {
+	canonicalContentType := canonicalizeContentType(responseContentType)
+	if canonicalContentType == canonicalizeContentType(prefix+requestCodecName) ||
+		(requestCodecName == connect.CodecNameProto && canonicalContentType == bare) {
 		return nil
 	}
 	expectedContentType := bare
@@ -1124,7 +1125,7 @@ func grpcValidateResponseContentType(web bool, requestCodecName string, response
 		expectedContentType = prefix + requestCodecName
 	}
 	code := connect.CodeInternal
-	if responseContentType != bare && !strings.HasPrefix(responseContentType, prefix) {
+	if canonicalContentType != bare && !strings.HasPrefix(canonicalContentType, prefix) {
 		// Doesn't even look like a gRPC response? Use code "unknown".
 		code = connect.CodeUnknown
 	}

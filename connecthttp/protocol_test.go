@@ -32,8 +32,21 @@ func TestCanonicalizeContentType(t *testing.T) {
 		{name: "uppercase should be normalized", arg: "APPLICATION/json", want: "application/json"},
 		{name: "utf-8 charset param should be stripped", arg: "application/json; charset=UTF-8", want: "application/json"},
 		{name: "non-utf-8 charset param should be lowercased", arg: "application/json; charset=Shift-JIS", want: "application/json; charset=shift-jis"},
-		{name: "non charset param should not be changed", arg: "multipart/form-data; boundary=fooBar", want: "multipart/form-data; boundary=fooBar"},
+		{name: "non-utf-8 charset param should be kept for connect streaming json", arg: "application/connect+json; charset=Latin1", want: "application/connect+json; charset=latin1"},
+		{name: "non-utf-8 charset param should be kept for grpc json", arg: "application/grpc+json; charset=latin1", want: "application/grpc+json; charset=latin1"},
+		{name: "non-utf-8 charset param should be kept for grpc-web json", arg: "application/grpc-web+json; charset=latin1", want: "application/grpc-web+json; charset=latin1"},
+		{name: "non-utf-8 charset param should be stripped for non-json", arg: "application/proto; charset=latin1", want: "application/proto"},
+		{name: "non charset param should be stripped", arg: "application/proto; foo=bar", want: "application/proto"},
+		{name: "non charset param should be stripped for json", arg: "application/json; foo=bar; charset=utf-8", want: "application/json"},
+		{name: "non charset param should be stripped beside non-utf-8 charset", arg: "application/json; foo=bar; charset=latin1", want: "application/json; charset=latin1"},
+		{name: "missing space should be normalized", arg: "application/json;charset=utf-8", want: "application/json"},
+		{name: "quoted charset should be normalized", arg: `application/json; charset="utf-8"`, want: "application/json"},
+		{name: "mixed case should be normalized", arg: "Application/Connect+PROTO", want: "application/connect+proto"},
 		{name: "no parameters should be normalized", arg: "APPLICATION/json;  ", want: "application/json"},
+		{name: "invalid media type should not be changed", arg: "application/json; charset", want: "application/json; charset"},
+		{name: "charset without value should not be changed", arg: "application/json; charset=", want: "application/json; charset="},
+		{name: "empty quoted charset should be kept for json", arg: `application/json; charset=""`, want: `application/json; charset=""`},
+		{name: "empty quoted charset should be stripped for non-json", arg: `application/proto; charset=""`, want: "application/proto"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

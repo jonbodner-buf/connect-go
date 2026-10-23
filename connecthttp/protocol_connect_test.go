@@ -213,11 +213,23 @@ func TestConnectValidateUnaryResponseContentType(t *testing.T) {
 			expectCode:          connect.CodeUnknown,
 			expectNotModified:   true,
 		},
+		// Media type is case-insensitive, and parameters other than a JSON
+		// charset are ignored.
+		{
+			codecName:           connect.CodecNameProto,
+			statusCode:          http.StatusOK,
+			responseContentType: "Application/Proto; foo=bar",
+		},
+		{
+			codecName:           connect.CodecNameProto,
+			statusCode:          http.StatusBadRequest,
+			responseContentType: "Application/JSON; foo=bar",
+		},
 		// OK status, invalid content-type
 		{
-			codecName:            connect.CodecNameProto,
+			codecName:            connect.CodecNameJSON,
 			statusCode:           http.StatusOK,
-			responseContentType:  "application/proto; charset=utf-8",
+			responseContentType:  "application/json; charset=latin1",
 			expectCode:           connect.CodeInternal,
 			expectBadContentType: true,
 		},
@@ -260,6 +272,12 @@ func TestConnectValidateUnaryResponseContentType(t *testing.T) {
 			statusCode:          http.StatusTooManyRequests,
 			responseContentType: "some/garbage",
 			expectCode:          httpToCode(http.StatusTooManyRequests),
+		},
+		{
+			codecName:           connect.CodecNameJSON,
+			statusCode:          http.StatusBadRequest,
+			responseContentType: "application/json; charset=latin1",
+			expectCode:          httpToCode(http.StatusBadRequest),
 		},
 	}
 	for _, testCase := range testCases {
@@ -310,6 +328,10 @@ func TestConnectValidateStreamResponseContentType(t *testing.T) {
 			codecName:           connect.CodecNameJSON,
 			responseContentType: "application/connect+json",
 		},
+		{
+			codecName:           connect.CodecNameProto,
+			responseContentType: "Application/Connect+Proto; foo=bar",
+		},
 		// Mismatched response codec
 		{
 			codecName:           connect.CodecNameProto,
@@ -324,8 +346,13 @@ func TestConnectValidateStreamResponseContentType(t *testing.T) {
 		// Disallowed content-types
 		{
 			codecName:           connect.CodecNameJSON,
-			responseContentType: "application/connect+json; charset=utf-8",
-			expectCode:          connect.CodeInternal, // *almost* looks right
+			responseContentType: "application/connect+json; charset=latin1",
+			expectCode:          connect.CodeInternal,
+		},
+		{
+			codecName:           connect.CodecNameProto,
+			responseContentType: "application/connectproto",
+			expectCode:          connect.CodeUnknown,
 		},
 		{
 			codecName:           connect.CodecNameProto,

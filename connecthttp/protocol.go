@@ -405,18 +405,27 @@ func canonicalizeContentTypeSlow(contentType string) string {
 	if err != nil {
 		return contentType
 	}
-	// According to RFC 9110 Section 8.3.2, the charset parameter value should be treated as case-insensitive.
-	// Connect payloads are always UTF-8, so a utf-8 charset is dropped to canonicalize to the bare
-	// content type; any other charset is retained (and rejected during codec negotiation).
-	// ref.) https://httpwg.org/specs/rfc9110.html#rfc.section.8.3.2
-	if charset, ok := params["charset"]; ok {
-		if strings.ToLower(charset) == "utf-8" {
-			delete(params, "charset")
-		} else {
-			params["charset"] = strings.ToLower(charset)
-		}
+	// Parameters other than a JSON charset must be ignored. JSON payloads are
+	// always UTF-8, so any other charset is kept and never matches a codec.
+	// Charset values are case-insensitive (RFC 9110 Section 8.3.2).
+	charset, ok := params["charset"]
+	charset = strings.ToLower(charset)
+	if !ok || charset == "utf-8" || !isJSONContentType(base) {
+		return base
 	}
-	return mime.FormatMediaType(base, params)
+	return mime.FormatMediaType(base, map[string]string{"charset": charset})
+}
+
+func isJSONContentType(base string) bool {
+	switch base {
+	case connectUnaryContentTypePrefix + connect.CodecNameJSON,
+		connectStreamingContentTypePrefix + connect.CodecNameJSON,
+		grpcContentTypePrefix + connect.CodecNameJSON,
+		grpcWebContentTypePrefix + connect.CodecNameJSON:
+		return true
+	default:
+		return false
+	}
 }
 
 func httpToCode(httpCode int) connect.Code {
